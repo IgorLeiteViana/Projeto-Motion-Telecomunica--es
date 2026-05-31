@@ -254,27 +254,6 @@ app.get('/api/resumo/comparativo', async (req, res) => {
 });
 
 // ==========================================
-// ROTA: ALERTAS DE CONTAS A VENCER
-// ==========================================
-app.get('/api/alertas', async (req, res) => {
-    try {
-        const query = `
-            SELECT * FROM transacoes
-            WHERE tipo = 'despesa' 
-            AND concluido = 0 
-            AND data_vencimento IS NOT NULL
-            AND data_vencimento <= DATE_ADD(NOW(), INTERVAL 3 DAY)
-            ORDER BY data_vencimento ASC
-        `;
-        const [alertas] = await pool.query(query);
-        res.json(alertas);
-    } catch (erro) {
-        console.error(erro);
-        res.status(500).json({ erro: 'Erro ao buscar alertas' });
-    }
-});
-
-// ==========================================
 // ROTA: EXPORTAR CSV
 // ==========================================
 app.get('/api/export/csv', async (req, res) => {
