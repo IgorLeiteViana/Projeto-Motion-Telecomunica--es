@@ -1,12 +1,20 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const ExcelJS = require('exceljs');
 const pool = require('./db'); // Importa a conexão com o banco de dados (MySQL)
 const app = express();
 
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname));
+app.use(express.static(__dirname));
 
 app.use(cors()); // Permite que o front (index.html) acesse o backend
 app.use(express.json()); // Permite o receber os dados
 
+app.get(['/', '/dashboard'], (_req, res) => {
+    res.render('dashboard');
+});
 
 app.get('/api/transacoes', async (req, res) => {
     try {
@@ -363,6 +371,61 @@ app.get('/api/export/pdf', async (req, res) => {
     } catch (erro) {
         console.error(erro);
         res.status(500).json({ erro: 'Erro ao gerar PDF' });
+    }
+});
+
+// ==========================================
+// ROTA: EXPORTAR EXCEL
+// ==========================================
+app.get('/api/export/excel', async (req, res) => {
+    try {
+        const { mes, ano } = req.query;
+        let query = 'SELECT * FROM transacoes';
+        const params = [];
+
+        if (mes && ano) {
+            query += ' WHERE MONTH(data_criacao) = ? AND YEAR(data_criacao) = ?';
+            params.push(mes, ano);
+        }
+        query += ' ORDER BY data_criacao DESC';
+
+        const [transacoes] = await pool.query(query, params);
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Transações');
+
+        worksheet.columns = [
+            { header: 'ID', key: 'id', width: 10 },
+            { header: 'Nome', key: 'nome', width: 30 },
+            { header: 'Descrição', key: 'descricao', width: 40 },
+            { header: 'Valor', key: 'valor', width: 15 },
+            { header: 'Tipo', key: 'tipo', width: 15 },
+            { header: 'Categoria', key: 'categoria', width: 15 },
+            { header: 'Concluído', key: 'concluido', width: 12 },
+            { header: 'Data Criação', key: 'data_criacao', width: 20 }
+        ];
+
+        transacoes.forEach(t => {
+            worksheet.addRow({
+                id: t.id,
+                nome: t.nome,
+                descricao: t.descricao,
+                valor: t.valor,
+                tipo: t.tipo,
+                categoria: t.categoria,
+                concluido: t.concluido ? 'Sim' : 'Não',
+                data_criacao: new Date(t.data_criacao).toLocaleDateString('pt-BR')
+            });
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="transacoes_${mes || 'todas'}_${ano || 'todas'}.xlsx"`);
+
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao exportar Excel' });
     }
 });
 

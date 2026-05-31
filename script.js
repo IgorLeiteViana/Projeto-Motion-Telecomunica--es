@@ -273,6 +273,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
+    window.exportarExcel = () => {
+        const url = `http://localhost:3000/api/export/excel${getParamsMesAno()}`;
+        window.location.href = url;
+    };
+
     async function atualizarGraficoPrincipal() {
         try {
             const resposta = await fetch(`http://localhost:3000/api/transacoes${getParamsMesAno()}`);
