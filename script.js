@@ -2,15 +2,61 @@ document.addEventListener('DOMContentLoaded', function() {
     let itensFinanceiros = [];
     let charts = {};
     let itemEmEdicaoId = null;
-    atualizarGraficoPrincipal();
     
     // URL base do seu servidor Node.js
     const API_URL = 'http://localhost:3000/api/transacoes';
+    
+    // Estado do mês e ano selecionados
+    let mesSelecionado = new Date().getMonth() + 1;
+    let anoSelecionado = new Date().getFullYear();
 
     const formatarMoeda = (valor) => {
         return parseFloat(valor).toLocaleString('pt-BR', {
             style: 'currency',
             currency: 'BRL'
+        });
+    };
+
+    // Função auxiliar para obter os parâmetros de mês/ano
+    const getParamsMesAno = () => `?mes=${mesSelecionado}&ano=${anoSelecionado}`;
+
+    // Função para inicializar o seletor de mês com opções dinâmicas
+    const inicializarSeletorMes = () => {
+        const meses = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 
+                       'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+        const selectores = document.querySelectorAll('.select-mes-estilizado');
+        
+        selectores.forEach(select => {
+            select.innerHTML = '';
+            for (let i = 1; i <= 12; i++) {
+                for (let ano = anoSelecionado - 2; ano <= anoSelecionado + 2; ano++) {
+                    const option = document.createElement('option');
+                    option.value = `${i}-${ano}`;
+                    option.textContent = `${meses[i - 1]} / ${ano}`;
+                    if (i === mesSelecionado && ano === anoSelecionado) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                }
+            }
+        });
+        
+        // Adicionar event listeners aos seletores
+        selectores.forEach(select => {
+            select.addEventListener('change', (e) => {
+                const [mes, ano] = e.target.value.split('-');
+                mesSelecionado = parseInt(mes);
+                anoSelecionado = parseInt(ano);
+                
+                // Atualizar todos os seletores
+                selectores.forEach(s => s.value = `${mesSelecionado}-${anoSelecionado}`);
+                
+                // Recarregar dados
+                carregarTransacoes();
+                atualizarDashboard();
+                atualizarRelatorios();
+                atualizarGraficoPrincipal();
+            });
         });
     };
 
@@ -33,64 +79,64 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     async function atualizarDashboard() {
-try {
-        const resposta = await fetch('http://localhost:3000/api/resumo');
-        const dados = await resposta.json();
+        try {
+            const resposta = await fetch(`http://localhost:3000/api/resumo${getParamsMesAno()}`);
+            const dados = await resposta.json();
 
-        // 1. Despesas Totais (Original)
-        document.querySelector('.card.red h2').innerText = formatarMoeda(dados.total_despesas || 0);
-        
-        // 2. Entradas Totais (Original)
-        document.querySelector('.card.green h2').innerText = formatarMoeda(dados.total_entradas || 0);
-        
-        // 3. Saldo Disponível (Calculado com concluídas)
-        document.querySelector('.card.white:nth-of-type(3) h2').innerText = formatarMoeda(dados.saldo_disponivel || 0);
-        
-        // 4. Lucro Total (Calculado com mínimo 0)
-        document.querySelector('.card.white:nth-of-type(4) h2').innerText = formatarMoeda(dados.lucro_total || 0);
-        
-        const cardsGray = document.querySelectorAll('.card.gray h2');
-        if (cardsGray.length >= 2) {
-            cardsGray[0].innerText = formatarMoeda(dados.contas_a_pagar || 0); // Contas a Pagar
-            cardsGray[1].innerText = formatarMoeda(dados.contas_pagas || 0);   // Contas Pagas
+            // 1. Despesas Totais
+            document.querySelector('.card.red h2').innerText = formatarMoeda(dados.total_despesas || 0);
+            
+            // 2. Entradas Totais
+            document.querySelector('.card.green h2').innerText = formatarMoeda(dados.total_entradas || 0);
+            
+            // 3. Saldo Disponível
+            document.querySelector('.card.white:nth-of-type(3) h2').innerText = formatarMoeda(dados.saldo_disponivel || 0);
+            
+            // 4. Lucro Total
+            document.querySelector('.card.white:nth-of-type(4) h2').innerText = formatarMoeda(dados.lucro_total || 0);
+            
+            const cardsGray = document.querySelectorAll('.card.gray h2');
+            if (cardsGray.length >= 2) {
+                cardsGray[0].innerText = formatarMoeda(dados.contas_a_pagar || 0);
+                cardsGray[1].innerText = formatarMoeda(dados.contas_pagas || 0);
+            }
+
+        } catch (erro) {
+            console.error("Erro ao atualizar dashboard:", erro);
         }
-
-    } catch (erro) {
-        console.error("Erro ao atualizar dashboard:", erro);
     }
-}
 
-async function atualizarRelatorios() {
-    try {
-        const resposta = await fetch('http://localhost:3000/api/resumo');
-        const dados = await resposta.json();
+    async function atualizarRelatorios() {
+        try {
+            const resposta = await fetch(`http://localhost:3000/api/resumo${getParamsMesAno()}`);
+            const dados = await resposta.json();
 
-        // 1. Despesas (Primeira coluna)
-        const colDespesas = document.querySelectorAll('.col-relatorio:nth-child(1) .card-relatorio h2');
-        colDespesas[0].innerText = formatarMoeda(dados.despesa_fixa || 0);
-        colDespesas[1].innerText = formatarMoeda(dados.despesa_variavel || 0);
-        colDespesas[2].innerText = formatarMoeda(dados.total_despesas || 0);
+            // 1. Despesas (Primeira coluna)
+            const colDespesas = document.querySelectorAll('.col-relatorio:nth-child(1) .card-relatorio h2');
+            colDespesas[0].innerText = formatarMoeda(dados.despesa_fixa || 0);
+            colDespesas[1].innerText = formatarMoeda(dados.despesa_variavel || 0);
+            colDespesas[2].innerText = formatarMoeda(dados.total_despesas || 0);
 
-        // 2. Entradas (Segunda coluna)
-        const colEntradas = document.querySelectorAll('.col-relatorio:nth-child(2) .card-relatorio h2');
-        colEntradas[0].innerText = formatarMoeda(dados.entrada_fixa || 0);
-        colEntradas[1].innerText = formatarMoeda(dados.entrada_variavel || 0);
-        colEntradas[2].innerText = formatarMoeda(dados.total_entradas || 0);
+            // 2. Entradas (Segunda coluna)
+            const colEntradas = document.querySelectorAll('.col-relatorio:nth-child(2) .card-relatorio h2');
+            colEntradas[0].innerText = formatarMoeda(dados.entrada_fixa || 0);
+            colEntradas[1].innerText = formatarMoeda(dados.entrada_variavel || 0);
+            colEntradas[2].innerText = formatarMoeda(dados.total_entradas || 0);
 
-        // 3. Resumo (Terceira coluna)
-        const colResumo = document.querySelectorAll('.col-relatorio:nth-child(3) .card-relatorio-destaque h2');
-        colResumo[0].innerText = formatarMoeda(dados.saldo_relatorio || 0);
-        colResumo[1].innerText = formatarMoeda(dados.lucro_relatorio || 0);
-        
-    } catch (erro) { 
-        console.error("Erro ao atualizar relatórios:", erro); 
+            // 3. Resumo (Terceira coluna)
+            const colResumo = document.querySelectorAll('.col-relatorio:nth-child(3) .card-relatorio-destaque h2');
+            colResumo[0].innerText = formatarMoeda((dados.total_entradas || 0) - (dados.total_despesas || 0));
+            colResumo[1].innerText = formatarMoeda(Math.max(0, (dados.total_entradas || 0) - (dados.total_despesas || 0)));
+            
+        } catch (erro) { 
+            console.error("Erro ao atualizar relatórios:", erro); 
+        }
     }
-}
 
     // --- COMUNICAÇÃO COM O BANCO DE DADOS (API) ---
     async function carregarTransacoes() {
         try {
-            const resposta = await fetch(API_URL);
+            const resposta = await fetch(`${API_URL}${getParamsMesAno()}`);
             const dadosBanco = await resposta.json();
             
             // Mapeia os dados das colunas do MySQL
@@ -228,38 +274,39 @@ async function atualizarRelatorios() {
     };
 
     async function atualizarGraficoPrincipal() {
-    try {
-        const resposta = await fetch('http://localhost:3000/api/transacoes');
-        const transacoes = await resposta.json();
+        try {
+            const resposta = await fetch(`http://localhost:3000/api/transacoes${getParamsMesAno()}`);
+            const transacoes = await resposta.json();
 
-        // Se não houver transações, não faz nada para evitar erro de renderização
-        if (!transacoes || transacoes.length === 0) return;
+            // Se não houver transações, não faz nada para evitar erro de renderização
+            if (!transacoes || transacoes.length === 0) return;
 
-        // Criando um saldo acumulado (para a linha ter continuidade)
-        let saldoAcumulado = 0;
-        const labels = [];
-        const dados = [];
+            // Criando um saldo acumulado (para a linha ter continuidade)
+            let saldoAcumulado = 0;
+            const labels = [];
+            const dados = [];
 
-        // Ordenar por data caso venham desordenadas
-        transacoes.sort((a, b) => new Date(a.data_criacao) - new Date(b.data_criacao));
+            // Ordenar por data caso venham desordenadas
+            transacoes.sort((a, b) => new Date(a.data_criacao) - new Date(b.data_criacao));
 
-        transacoes.forEach(t => {
-            const valor = parseFloat(t.valor);
-            saldoAcumulado += (t.tipo === 'entrada' ? valor : -valor);
-            
-            labels.push(new Date(t.data_criacao).toLocaleDateString('pt-BR'));
-            dados.push(saldoAcumulado);
-        });
+            transacoes.forEach(t => {
+                const valor = parseFloat(t.valor);
+                saldoAcumulado += (t.tipo === 'entrada' ? valor : -valor);
+                
+                labels.push(new Date(t.data_criacao).toLocaleDateString('pt-BR'));
+                dados.push(saldoAcumulado);
+            });
 
-        // Atualizando o gráfico
-        charts.principal.data.labels = labels;
-        charts.principal.data.datasets[0].data = dados;
-        
-        charts.principal.update();
-    } catch (erro) {
-        console.error("Erro ao atualizar o gráfico:", erro);
+            // Atualizando o gráfico
+            if (charts.principal) {
+                charts.principal.data.labels = labels;
+                charts.principal.data.datasets[0].data = dados;
+                charts.principal.update();
+            }
+        } catch (erro) {
+            console.error("Erro ao atualizar o gráfico:", erro);
+        }
     }
-}
 
     window.abrirEdicao = (id) => {
         const item = itensFinanceiros.find(i => i.id === id);
@@ -314,33 +361,35 @@ async function atualizarRelatorios() {
     });
 
     charts.principal = new Chart(document.getElementById('lucroChartPrincipal'), {
-    type: 'line',
-    data: {
-        labels: [], // As datas serão preenchidas aqui
-        datasets: [{
-            label: 'Saldo/Lucro',
-            data: [], // Os valores serão preenchidos aqui
-            borderColor: '#50fa7b',
-            backgroundColor: 'transparent',
-            borderWidth: 3,
-            tension: 0.4
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            y: { grid: { color: 'rgba(255,255,255,0.1)' } },
-            x: { grid: { display: false } }
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Saldo/Lucro',
+                data: [],
+                borderColor: '#50fa7b',
+                backgroundColor: 'transparent',
+                borderWidth: 3,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { grid: { color: 'rgba(255,255,255,0.1)' } },
+                x: { grid: { display: false } }
+            }
         }
-    }
-});
+    });
     charts.despesas = new Chart(document.getElementById('chartDespesas'), configGrafico(['Jan','Fev','Mar'], 'bar', '#ff5555'));
     charts.entradas = new Chart(document.getElementById('chartEntradas'), configGrafico(['Jan','Fev','Mar'], 'bar', '#50fa7b'));
     charts.lucro = new Chart(document.getElementById('chartLucro'), configGrafico(['Jan','Fev','Mar'], 'line', '#f1fa8c'));
     charts.saldo = new Chart(document.getElementById('chartSaldo'), configGrafico(['Jan','Fev','Mar'], 'line', '#8be9fd'));
 
-    // Inicia a aplicação buscando os dados do banco
+    // Inicializa o seletor de mês e carrega os dados
+    inicializarSeletorMes();
+    atualizarGraficoPrincipal();
     carregarTransacoes();
 });

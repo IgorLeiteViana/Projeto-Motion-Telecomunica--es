@@ -1,3 +1,373 @@
-// server.js (bootstrap)
-require('./code/server');
+const express = require('express');
+const cors = require('cors');
+const pool = require('./db'); // Importa a conexão com o banco de dados (MySQL)
+const app = express();
 
+
+app.use(cors()); // Permite que o front (index.html) acesse o backend
+app.use(express.json()); // Permite o receber os dados
+
+
+app.get('/api/transacoes', async (req, res) => {
+    try {
+        const { mes, ano, tipo, categoria } = req.query;
+        let query = 'SELECT * FROM transacoes';
+        const params = [];
+        
+        // Aplicar filtros se fornecidos
+        const filters = [];
+        if (mes && ano) {
+            filters.push('MONTH(data_criacao) = ? AND YEAR(data_criacao) = ?');
+            params.push(mes, ano);
+        }
+        if (tipo) {
+            filters.push('tipo = ?');
+            params.push(tipo);
+        }
+        if (categoria) {
+            filters.push('categoria = ?');
+            params.push(categoria);
+        }
+        
+        if (filters.length > 0) {
+            query += ' WHERE ' + filters.join(' AND ');
+        }
+        query += ' ORDER BY data_criacao DESC';
+        
+        const [linhas] = await pool.query(query, params);
+        res.json(linhas);
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao buscar transações' });
+    }
+});
+
+// ==========================================
+// ROTA: CRIAR NOVA TRANSAÇÃO (CREATE)
+// ==========================================
+app.post('/api/transacoes', async (req, res) => {
+    // Dados recebidos do btnSalvar no script.js
+    const { nome, desc, valor, tipo, cat } = req.body; 
+
+    try {
+        const query = `
+            INSERT INTO transacoes (nome, descricao, valor, tipo, categoria) 
+            VALUES (?, ?, ?, ?, ?)
+        `;
+        const [resultado] = await pool.query(query, [nome, desc, valor, tipo, cat]);
+        
+        // Retorna o ID gerado pelo banco e os dados confirmados
+        res.status(201).json({ id: resultado.insertId, nome, desc, valor, tipo, cat, concluido: false });
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao adicionar transação' });
+    }
+});
+
+// ==========================================
+// ROTA: ATUALIZAR TRANSAÇÃO (UPDATE)
+// ==========================================
+app.put('/api/transacoes/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nome, desc, valor, tipo, cat, concluido } = req.body;
+
+    try {
+        const query = `
+            UPDATE transacoes 
+            SET nome = ?, descricao = ?, valor = ?, tipo = ?, categoria = ?, concluido = ? 
+            WHERE id = ?
+        `;
+        await pool.query(query, [nome, desc, valor, tipo, cat, concluido, id]);
+        
+        res.json({ mensagem: 'Transação atualizada com sucesso!' });
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao atualizar transação' });
+    }
+});
+
+// ==========================================
+// ROTA: DELETAR TRANSAÇÃO (DELETE)
+// ==========================================
+app.delete('/api/transacoes/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        await pool.query('DELETE FROM transacoes WHERE id = ?', [id]);
+        res.json({ mensagem: 'Transação excluída com sucesso!' });
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao excluir transação' });
+    }
+});
+
+// ==========================================
+// ROTA: RESUMO E ESTATÍSTICAS (READ)
+// ==========================================
+app.get('/api/resumo', async (req, res) => {
+    try {
+        const { mes, ano } = req.query;
+        let whereClause = '';
+        const params = [];
+        
+        // Aplicar filtro de mês/ano se fornecidos
+        if (mes && ano) {
+            whereClause = 'WHERE MONTH(data_criacao) = ? AND YEAR(data_criacao) = ?';
+            params.push(mes, ano);
+        }
+        
+        const sqlQuery = `
+            SELECT 
+                SUM(CASE WHEN tipo = 'despesa' THEN valor ELSE 0 END) as total_despesas,
+                SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END) as total_entradas,
+                SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END) - SUM(CASE WHEN tipo = 'despesa' AND concluido = 1 THEN valor ELSE 0 END) as saldo_disponivel,
+                GREATEST(0, SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END) - SUM(CASE WHEN tipo = 'despesa' THEN valor ELSE 0 END)) as lucro_total,
+                SUM(CASE WHEN tipo = 'despesa' AND concluido = 0 THEN valor ELSE 0 END) as contas_a_pagar,
+                SUM(CASE WHEN tipo = 'despesa' AND concluido = 1 THEN valor ELSE 0 END) as contas_pagas,
+                SUM(CASE WHEN tipo = 'despesa' AND categoria = 'fixa' THEN valor ELSE 0 END) as despesa_fixa,
+                SUM(CASE WHEN tipo = 'despesa' AND categoria = 'variavel' THEN valor ELSE 0 END) as despesa_variavel,
+                SUM(CASE WHEN tipo = 'entrada' AND categoria = 'fixa' THEN valor ELSE 0 END) as entrada_fixa,
+                SUM(CASE WHEN tipo = 'entrada' AND categoria = 'variavel' THEN valor ELSE 0 END) as entrada_variavel
+            FROM transacoes
+            ${whereClause}
+        `;
+        
+        const [resultado] = await pool.query(sqlQuery, params);
+        res.json(resultado[0]);
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao calcular resumo' });
+    }
+});
+
+// ==========================================
+// ROTA: GERENCIAR CATEGORIAS
+// ==========================================
+app.get('/api/categorias', async (req, res) => {
+    try {
+        const [categorias] = await pool.query('SELECT * FROM categorias ORDER BY nome ASC');
+        res.json(categorias);
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao buscar categorias' });
+    }
+});
+
+app.post('/api/categorias', async (req, res) => {
+    const { nome, tipo } = req.body;
+    
+    try {
+        const query = 'INSERT INTO categorias (nome, tipo) VALUES (?, ?)';
+        const [resultado] = await pool.query(query, [nome, tipo]);
+        res.status(201).json({ id: resultado.insertId, nome, tipo });
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao criar categoria' });
+    }
+});
+
+// ==========================================
+// ROTA: RESUMO COMPARATIVO (MÊS ANTERIOR)
+// ==========================================
+app.get('/api/resumo/comparativo', async (req, res) => {
+    try {
+        const { mes, ano } = req.query;
+        
+        if (!mes || !ano) {
+            return res.status(400).json({ erro: 'Parâmetros mes e ano são obrigatórios' });
+        }
+        
+        // Calcular mês anterior
+        let mesPrev = parseInt(mes) - 1;
+        let anoPrev = parseInt(ano);
+        if (mesPrev === 0) {
+            mesPrev = 12;
+            anoPrev--;
+        }
+        
+        // Query para mês atual
+        const queryAtual = `
+            SELECT 
+                SUM(CASE WHEN tipo = 'despesa' THEN valor ELSE 0 END) as total_despesas,
+                SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END) as total_entradas,
+                SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END) - SUM(CASE WHEN tipo = 'despesa' THEN valor ELSE 0 END) as saldo,
+                GREATEST(0, SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END) - SUM(CASE WHEN tipo = 'despesa' THEN valor ELSE 0 END)) as lucro
+            FROM transacoes
+            WHERE MONTH(data_criacao) = ? AND YEAR(data_criacao) = ?
+        `;
+        
+        // Query para mês anterior
+        const queryAnterior = `
+            SELECT 
+                SUM(CASE WHEN tipo = 'despesa' THEN valor ELSE 0 END) as total_despesas,
+                SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END) as total_entradas,
+                SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END) - SUM(CASE WHEN tipo = 'despesa' THEN valor ELSE 0 END) as saldo,
+                GREATEST(0, SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END) - SUM(CASE WHEN tipo = 'despesa' THEN valor ELSE 0 END)) as lucro
+            FROM transacoes
+            WHERE MONTH(data_criacao) = ? AND YEAR(data_criacao) = ?
+        `;
+        
+        const [resultAtual] = await pool.query(queryAtual, [mes, ano]);
+        const [resultAnterior] = await pool.query(queryAnterior, [mesPrev, anoPrev]);
+        
+        const atual = resultAtual[0];
+        const anterior = resultAnterior[0];
+        
+        // Calcular variação percentual
+        const calcularVariacao = (atual, anterior) => {
+            if (!anterior || anterior === 0) return 0;
+            return ((atual - anterior) / anterior * 100).toFixed(2);
+        };
+        
+        res.json({
+            mes_atual: {
+                despesas: atual.total_despesas,
+                entradas: atual.total_entradas,
+                saldo: atual.saldo,
+                lucro: atual.lucro
+            },
+            mes_anterior: {
+                despesas: anterior.total_despesas,
+                entradas: anterior.total_entradas,
+                saldo: anterior.saldo,
+                lucro: anterior.lucro
+            },
+            variacao_percentual: {
+                despesas: calcularVariacao(atual.total_despesas, anterior.total_despesas),
+                entradas: calcularVariacao(atual.total_entradas, anterior.total_entradas),
+                saldo: calcularVariacao(atual.saldo, anterior.saldo),
+                lucro: calcularVariacao(atual.lucro, anterior.lucro)
+            }
+        });
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao calcular comparativo' });
+    }
+});
+
+// ==========================================
+// ROTA: ALERTAS DE CONTAS A VENCER
+// ==========================================
+app.get('/api/alertas', async (req, res) => {
+    try {
+        const query = `
+            SELECT * FROM transacoes
+            WHERE tipo = 'despesa' 
+            AND concluido = 0 
+            AND data_vencimento IS NOT NULL
+            AND data_vencimento <= DATE_ADD(NOW(), INTERVAL 3 DAY)
+            ORDER BY data_vencimento ASC
+        `;
+        const [alertas] = await pool.query(query);
+        res.json(alertas);
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao buscar alertas' });
+    }
+});
+
+// ==========================================
+// ROTA: EXPORTAR CSV
+// ==========================================
+app.get('/api/export/csv', async (req, res) => {
+    try {
+        const { mes, ano } = req.query;
+        let query = 'SELECT * FROM transacoes';
+        const params = [];
+        
+        if (mes && ano) {
+            query += ' WHERE MONTH(data_criacao) = ? AND YEAR(data_criacao) = ?';
+            params.push(mes, ano);
+        }
+        query += ' ORDER BY data_criacao DESC';
+        
+        const [transacoes] = await pool.query(query, params);
+        
+        // Cabeçalhos CSV
+        let csv = 'ID,Nome,Descricao,Valor,Tipo,Categoria,Concluido,Data Criacao\n';
+        
+        // Dados
+        transacoes.forEach(t => {
+            csv += `${t.id},"${t.nome}","${t.descricao}",${t.valor},"${t.tipo}","${t.categoria}",${t.concluido},"${new Date(t.data_criacao).toLocaleDateString('pt-BR')}"\n`;
+        });
+        
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="transacoes_${mes}_${ano}.csv"`);
+        res.send(csv);
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao gerar CSV' });
+    }
+});
+
+// ==========================================
+// ROTA: EXPORTAR PDF
+// ==========================================
+app.get('/api/export/pdf', async (req, res) => {
+    try {
+        const { mes, ano } = req.query;
+        let query = 'SELECT * FROM transacoes';
+        const params = [];
+        
+        if (mes && ano) {
+            query += ' WHERE MONTH(data_criacao) = ? AND YEAR(data_criacao) = ?';
+            params.push(mes, ano);
+        }
+        query += ' ORDER BY data_criacao DESC';
+        
+        const [transacoes] = await pool.query(query, params);
+        
+        // Calcular totais
+        const totalDespesas = transacoes
+            .filter(t => t.tipo === 'despesa')
+            .reduce((sum, t) => sum + t.valor, 0);
+        const totalEntradas = transacoes
+            .filter(t => t.tipo === 'entrada')
+            .reduce((sum, t) => sum + t.valor, 0);
+        
+        // Usar PDFDocument se disponível
+        try {
+            const PDFDocument = require('pdfkit');
+            const doc = new PDFDocument();
+            
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="transacoes_${mes}_${ano}.pdf"`);
+            doc.pipe(res);
+            
+            // Cabeçalho
+            doc.fontSize(16).text(`Relatório de Transações - ${mes}/${ano}`, { align: 'center' });
+            doc.fontSize(12).text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, { align: 'center' });
+            doc.moveDown();
+            
+            // Resumo
+            doc.fontSize(12).text('RESUMO:', { underline: true });
+            doc.fontSize(10).text(`Total Entradas: R$ ${totalEntradas.toFixed(2)}`);
+            doc.text(`Total Despesas: R$ ${totalDespesas.toFixed(2)}`);
+            doc.text(`Saldo: R$ ${(totalEntradas - totalDespesas).toFixed(2)}`);
+            doc.moveDown();
+            
+            // Tabela de transações
+            doc.fontSize(12).text('TRANSAÇÕES:', { underline: true });
+            doc.fontSize(9);
+            
+            transacoes.forEach(t => {
+                const tipo = t.tipo === 'entrada' ? '✓ Entrada' : '✗ Despesa';
+                doc.text(`${t.nome} | ${tipo} | R$ ${t.valor.toFixed(2)} | ${new Date(t.data_criacao).toLocaleDateString('pt-BR')}`);
+            });
+            
+            doc.end();
+        } catch (pdfError) {
+            // Se pdfkit não estiver instalado, retornar erro
+            res.status(400).json({ erro: 'pdfkit não instalado. Execute: npm install pdfkit' });
+        }
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao gerar PDF' });
+    }
+});
+
+// Inicializando o servidor
+const PORTA = 3000;
+app.listen(PORTA, () => {
+    console.log(`Servidor de finanças rodando na porta ${PORTA}`);
+});
