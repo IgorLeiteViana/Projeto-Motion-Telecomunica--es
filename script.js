@@ -11,10 +11,20 @@ document.addEventListener('DOMContentLoaded', function() {
     let anoSelecionado = new Date().getFullYear();
 
     const formatarMoeda = (valor) => {
-        return parseFloat(valor).toLocaleString('pt-BR', {
+        return parseFloat(valor || 0).toLocaleString('pt-BR', {
             style: 'currency',
             currency: 'BRL'
         });
+    };
+
+    const formatarData = (data) => {
+        if (!data) return '-';
+        return new Date(data).toLocaleDateString('pt-BR');
+    };
+
+    const formatarStatus = (item) => {
+        if (item.tipo === 'entrada') return item.concluido ? 'Recebido' : 'Aguardando';
+        return item.concluido ? 'Pago' : 'Pendente';
     };
 
     // Função auxiliar para obter os parâmetros de mês/ano
@@ -55,6 +65,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 carregarTransacoes();
                 atualizarDashboard();
                 atualizarRelatorios();
+                atualizarVisaoMensal();
+                atualizarVisaoDoDia();
+                atualizarComparativo();
+                atualizarGraficosSecundarios();
                 atualizarGraficoPrincipal();
             });
         });
@@ -139,7 +153,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const resposta = await fetch(`${API_URL}${getParamsMesAno()}`);
             const dadosBanco = await resposta.json();
             
-            // Mapeia os dados das colunas do MySQL
             itensFinanceiros = dadosBanco.map(item => ({
                 id: item.id,
                 nome: item.nome,
@@ -147,12 +160,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 valor: item.valor,
                 tipo: item.tipo,
                 cat: item.categoria,
-                concluido: item.concluido === 1 || item.concluido === true 
+                concluido: item.concluido === 1 || item.concluido === true,
+                dataVencimento: item.data_vencimento,
+                dataPagamento: item.data_pagamento,
+                dataGanho: item.data_ganho,
+                recorrencia: item.recorrencia,
+                dataCriacao: item.data_criacao
             }));
             
             renderizarLista();
-            // Atualiza o dashboard apenas após carregar a lista
-            await atualizarDashboard(); 
+            await atualizarDashboard();
+            await atualizarRelatorios();
+            await atualizarVisaoMensal();
+            await atualizarVisaoDoDia();
+            await atualizarComparativo();
+            await atualizarGraficosSecundarios();
+            await atualizarGraficoPrincipal();
         } catch (erro) {
             console.error("Erro ao carregar os dados do banco:", erro);
         }
@@ -178,14 +201,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const desc = document.getElementById('form-descricao').value;
         const tipo = document.getElementById('form-tipo').value;
         const cat = document.getElementById('form-categoria').value;
+        const dataVencimento = document.getElementById('form-data-vencimento').value;
+        const dataPagamento = document.getElementById('form-data-pagamento').value;
+        const dataGanho = document.getElementById('form-data-ganho').value;
+        const recorrencia = document.getElementById('form-recorrencia').value;
 
-        if(!valor || !nome) return alert("Preencha Nome e Valor!");
+        if (!valor || !nome) return alert("Preencha Nome e Valor!");
 
-        const transacao = { nome, desc, valor, tipo, cat };
+        const transacao = {
+            nome,
+            desc,
+            valor: parseFloat(valor),
+            tipo,
+            cat,
+            dataVencimento: dataVencimento || null,
+            dataPagamento: dataPagamento || null,
+            dataGanho: dataGanho || null,
+            recorrencia: recorrencia || null
+        };
 
         try {
             if (itemEmEdicaoId) {
-                // Modo Edição: Faz um PUT para atualizar no banco
                 const itemAtual = itensFinanceiros.find(i => i.id === itemEmEdicaoId);
                 await fetch(`${API_URL}/${itemEmEdicaoId}`, {
                     method: 'PUT',
@@ -193,7 +229,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     body: JSON.stringify({ ...transacao, concluido: itemAtual.concluido })
                 });
             } else {
-                // Modo Novo: Faz um POST para inserir no banco
                 await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -202,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             modal.style.display = 'none';
-            carregarTransacoes(); // Recarrega os dados fresquinhos do banco
+            carregarTransacoes();
         } catch (erro) {
             console.error("Erro ao salvar a transação:", erro);
             alert("Não foi possível salvar no banco de dados.");
@@ -227,6 +262,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="item-info">
                         <h4>${item.nome.toUpperCase()}</h4>
                         <p>${item.desc || 'Sem descrição'}</p>
+                        <div class="item-meta">
+                            <span>${item.cat.toUpperCase()}</span>
+                            <span>${formatarStatus(item)}</span>
+                            <span>${item.recorrencia || '-'}</span>
+                        </div>
+                        <div class="item-datas">
+                            <small>Venc.: ${formatarData(item.dataVencimento)}</small>
+                            <small>Pag.: ${formatarData(item.dataPagamento)}</small>
+                            <small>Ganho: ${formatarData(item.dataGanho)}</small>
+                        </div>
                     </div>
                     <div class="item-valor">
                         ${formatarMoeda(item.valor)}
@@ -278,31 +323,107 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = url;
     };
 
+    window.exportarCsv = () => {
+        const url = `http://localhost:3000/api/export/csv${getParamsMesAno()}`;
+        window.location.href = url;
+    };
+
+    window.exportarPdf = () => {
+        const url = `http://localhost:3000/api/export/pdf${getParamsMesAno()}`;
+        window.location.href = url;
+    };
+
+    window.exportarPng = () => {
+        const canvas = document.getElementById('lucroChartPrincipal');
+        if (!canvas) return alert('Gráfico principal não encontrado.');
+
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = `relatorio_${mesSelecionado}_${anoSelecionado}.png`;
+        link.click();
+    };
+
+    async function atualizarVisaoMensal() {
+        try {
+            const resposta = await fetch(`http://localhost:3000/api/transacoes${getParamsMesAno()}`);
+            const transacoes = await resposta.json();
+            const despesas = transacoes.filter(t => t.tipo === 'despesa');
+            const maiorDespesa = despesas.reduce((max, t) => t.valor > max ? t.valor : max, 0);
+            const totalEntradas = transacoes.filter(t => t.tipo === 'entrada').reduce((sum, t) => sum + t.valor, 0);
+            const totalDespesas = despesas.reduce((sum, t) => sum + t.valor, 0);
+            const saldoMensal = totalEntradas - totalDespesas;
+            const projecao = saldoMensal + (saldoMensal * 0.1);
+
+            document.getElementById('maior-despesa').innerText = formatarMoeda(maiorDespesa);
+            document.getElementById('projecao-proximo-mes').innerText = formatarMoeda(projecao);
+        } catch (erro) {
+            console.error('Erro ao atualizar visão mensal:', erro);
+        }
+    }
+
+    async function atualizarVisaoDoDia() {
+        try {
+            const diaSelecionado = document.getElementById('dia-selecionado').value;
+            if (!diaSelecionado) return;
+
+            const resposta = await fetch(`http://localhost:3000/api/transacoes${getParamsMesAno()}`);
+            const transacoes = await resposta.json();
+            const transacoesDoDia = transacoes.filter(t => {
+                return t.data_criacao && new Date(t.data_criacao).toISOString().slice(0, 10) === diaSelecionado;
+            });
+
+            const saldoDia = transacoesDoDia.reduce((sum, t) => sum + (t.tipo === 'entrada' ? t.valor : -t.valor), 0);
+            document.getElementById('saldo-dia').innerText = formatarMoeda(saldoDia);
+            document.getElementById('total-dia').innerText = transacoesDoDia.length;
+
+            const listaDia = document.getElementById('lista-dia');
+            listaDia.innerHTML = '';
+            if (transacoesDoDia.length === 0) {
+                listaDia.innerHTML = '<div class="card-relatorio"><p>Nenhum lançamento encontrado para essa data.</p></div>';
+                return;
+            }
+
+            transacoesDoDia.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card-relatorio';
+                card.innerHTML = `
+                    <h2>${item.nome}</h2>
+                    <p>${formatarStatus(item)} | ${formatarMoeda(item.valor)} | ${item.categoria.toUpperCase()}</p>
+                `;
+                listaDia.appendChild(card);
+            });
+        } catch (erro) {
+            console.error('Erro ao atualizar visão do dia:', erro);
+        }
+    }
+
     async function atualizarGraficoPrincipal() {
         try {
             const resposta = await fetch(`http://localhost:3000/api/transacoes${getParamsMesAno()}`);
             const transacoes = await resposta.json();
 
-            // Se não houver transações, não faz nada para evitar erro de renderização
-            if (!transacoes || transacoes.length === 0) return;
+            if (!transacoes || transacoes.length === 0) {
+                if (charts.principal) {
+                    charts.principal.data.labels = [];
+                    charts.principal.data.datasets[0].data = [];
+                    charts.principal.update();
+                }
+                return;
+            }
 
-            // Criando um saldo acumulado (para a linha ter continuidade)
             let saldoAcumulado = 0;
             const labels = [];
             const dados = [];
 
-            // Ordenar por data caso venham desordenadas
             transacoes.sort((a, b) => new Date(a.data_criacao) - new Date(b.data_criacao));
 
             transacoes.forEach(t => {
                 const valor = parseFloat(t.valor);
                 saldoAcumulado += (t.tipo === 'entrada' ? valor : -valor);
-                
                 labels.push(new Date(t.data_criacao).toLocaleDateString('pt-BR'));
                 dados.push(saldoAcumulado);
             });
 
-            // Atualizando o gráfico
             if (charts.principal) {
                 charts.principal.data.labels = labels;
                 charts.principal.data.datasets[0].data = dados;
@@ -310,6 +431,55 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (erro) {
             console.error("Erro ao atualizar o gráfico:", erro);
+        }
+    }
+
+    async function atualizarGraficosSecundarios() {
+        try {
+            const resposta = await fetch(`http://localhost:3000/api/resumo${getParamsMesAno()}`);
+            const dados = await resposta.json();
+
+            const despesasPorCategoria = [dados.despesa_fixa || 0, dados.despesa_variavel || 0];
+            const entradasPorCategoria = [dados.entrada_fixa || 0, dados.entrada_variavel || 0];
+            const saldo = (dados.total_entradas || 0) - (dados.total_despesas || 0);
+            const lucro = dados.lucro_total || 0;
+
+            if (charts.despesas) {
+                charts.despesas.data.labels = ['Fixa', 'Variável'];
+                charts.despesas.data.datasets[0].data = despesasPorCategoria;
+                charts.despesas.update();
+            }
+            if (charts.entradas) {
+                charts.entradas.data.labels = ['Fixa', 'Variável'];
+                charts.entradas.data.datasets[0].data = entradasPorCategoria;
+                charts.entradas.update();
+            }
+            if (charts.lucro) {
+                charts.lucro.data.labels = ['Saldo', 'Lucro'];
+                charts.lucro.data.datasets[0].data = [saldo, lucro];
+                charts.lucro.update();
+            }
+            if (charts.saldo) {
+                charts.saldo.data.labels = ['Saldo'];
+                charts.saldo.data.datasets[0].data = [saldo];
+                charts.saldo.update();
+            }
+        } catch (erro) {
+            console.error('Erro ao atualizar gráficos secundários:', erro);
+        }
+    }
+
+    async function atualizarComparativo() {
+        try {
+            const resposta = await fetch(`http://localhost:3000/api/resumo/comparativo${getParamsMesAno()}`);
+            const dados = await resposta.json();
+
+            document.querySelector('.comparativo-despesas').innerText = `${dados.variacao_percentual.despesas || 0}%`;
+            document.querySelector('.comparativo-entradas').innerText = `${dados.variacao_percentual.entradas || 0}%`;
+            document.querySelector('.comparativo-saldo').innerText = `${dados.variacao_percentual.saldo || 0}%`;
+            document.querySelector('.comparativo-lucro').innerText = `${dados.variacao_percentual.lucro || 0}%`;
+        } catch (erro) {
+            console.error('Erro ao atualizar comparativo:', erro);
         }
     }
 
@@ -321,6 +491,10 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('form-descricao').value = item.desc;
         document.getElementById('form-tipo').value = item.tipo;
         document.getElementById('form-categoria').value = item.cat;
+        document.getElementById('form-data-vencimento').value = item.dataVencimento || '';
+        document.getElementById('form-data-pagamento').value = item.dataPagamento || '';
+        document.getElementById('form-data-ganho').value = item.dataGanho || '';
+        document.getElementById('form-recorrencia').value = item.recorrencia || '';
         modal.style.display = 'flex';
     };
 
@@ -331,8 +505,33 @@ document.addEventListener('DOMContentLoaded', function() {
         menu.style.display = 'block';
     };
 
+    const atualizarSaldoInicialUI = () => {
+        const saldoInicial = parseFloat(localStorage.getItem('saldoInicial') || 0);
+        document.getElementById('valor-saldo-inicial').innerText = formatarMoeda(saldoInicial);
+    };
+
+    const abrirModalSaldoInicial = () => {
+        document.getElementById('modal-saldo-inicial').style.display = 'flex';
+        document.getElementById('form-saldo-inicial').value = localStorage.getItem('saldoInicial') || '';
+    };
+
+    const salvarSaldoInicial = () => {
+        const valor = parseFloat(document.getElementById('form-saldo-inicial').value);
+        if (isNaN(valor)) return alert('Informe um valor válido para o saldo inicial.');
+        localStorage.setItem('saldoInicial', valor.toFixed(2));
+        atualizarSaldoInicialUI();
+        document.getElementById('modal-saldo-inicial').style.display = 'none';
+    };
+
     function limparCampos() {
         document.querySelectorAll('#modal-formulario input').forEach(i => i.value = '');
+        document.getElementById('form-tipo').value = 'entrada';
+        document.getElementById('form-categoria').value = 'fixa';
+        document.getElementById('form-data-vencimento').value = '';
+        document.getElementById('form-data-pagamento').value = '';
+        document.getElementById('form-data-ganho').value = '';
+        document.getElementById('form-recorrencia').value = '';
+        itemEmEdicaoId = null;
     }
 
     window.onclick = () => document.querySelectorAll('.options-menu').forEach(m => m.style.display = 'none');
@@ -393,8 +592,15 @@ document.addEventListener('DOMContentLoaded', function() {
     charts.lucro = new Chart(document.getElementById('chartLucro'), configGrafico(['Jan','Fev','Mar'], 'line', '#f1fa8c'));
     charts.saldo = new Chart(document.getElementById('chartSaldo'), configGrafico(['Jan','Fev','Mar'], 'line', '#8be9fd'));
 
+    document.getElementById('btn-editar-saldo').addEventListener('click', abrirModalSaldoInicial);
+    document.getElementById('btn-salvar-saldo').addEventListener('click', salvarSaldoInicial);
+    document.getElementById('btn-filtrar-dia').addEventListener('click', atualizarVisaoDoDia);
+    document.getElementById('dia-selecionado').value = new Date().toISOString().slice(0, 10);
+
     // Inicializa o seletor de mês e carrega os dados
     inicializarSeletorMes();
+    atualizarSaldoInicialUI();
     atualizarGraficoPrincipal();
     carregarTransacoes();
+    atualizarVisaoDoDia();
 });

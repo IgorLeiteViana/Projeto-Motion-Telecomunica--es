@@ -23,4 +23,43 @@
             </div>
         </div>
     </div>
+    <div class="comparativo-container">
+        <div class="comparativo-card">
+            <h4>Variação Despesas</h4>
+            <p class="comparativo-despesas">0%</p>
+        </div>
+        <div class="comparativo-card">
+            <h4>Variação Entradas</h4>
+            <p class="comparativo-entradas">0%</p>
+        </div>
+        <div class="comparativo-card">
+            <h4>Variação Saldo</h4>
+            <p class="comparativo-saldo">0%</p>
+        </div>
+        <div class="comparativo-card">
+            <h4>Variação Lucro</h4>
+            <p class="comparativo-lucro">0%</p>
+        </div>
+    </div>
+    <div class="visao-mensal-container">
+        <div class="visao-mensal-card">
+            <span>Maior Despesa</span>
+            <h2 id="maior-despesa">R$ 0,00</h2>
+        </div>
+        <div class="visao-mensal-card">
+            <span>Projeção Próximo Mês</span>
+            <h2 id="projecao-proximo-mes">R$ 0,00</h2>
+        </div>
+    </div>
+    <div class="visao-dia-container">
+        <div class="visao-dia-header">
+            <input type="date" id="dia-selecionado">
+            <button id="btn-filtrar-dia" class="btn-export">Ver Dia</button>
+        </div>
+        <div class="visao-dia-result">
+            <div class="card-relatorio white"><span>SALDO DO DIA</span><h2 id="saldo-dia">R$ 0,00</h2></div>
+            <div class="card-relatorio white"><span>LANÇAMENTOS DO DIA</span><h2 id="total-dia">0</h2></div>
+        </div>
+        <div id="lista-dia" class="lista-dia"></div>
+    </div>
 </section>

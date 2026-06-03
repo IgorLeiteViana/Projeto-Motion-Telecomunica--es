@@ -1,0 +1,249 @@
+================================================================================
+DOCUMENTAÇÃO DE REQUISITOS DO SISTEMA — FINANCIAL MANAGER
+================================================================================
+
+------------------------------------------------------------------------
+UC001 — MANTER DESPESA FIXA
+------------------------------------------------------------------------
+Atores: Usuário
+Pré-Condições: Usuário autenticado.
+Pós-Condições: Registro criado, atualizado ou removido no banco de dados.
+
+Fluxo Principal:
+  1. Usuário seleciona "Gerenciar Despesas".
+  2. Sistema exibe lista de registros atuais.
+  3. Usuário opta por "Novo Registro".
+  4. Usuário seleciona "Despesa Fixa".
+  5. Sistema solicita: Descrição, Valor, Data de Vencimento, Recorrência.
+  6. Usuário confirma.
+  7. Sistema valida e salva.
+
+Fluxo Alternativo — Editar:
+  3. Usuário seleciona registro existente.
+  4. Usuário opta por "Modificar Registro".
+  5. Sistema exibe informações existentes.
+  6–8. Usuário altera os campos desejados e confirma.
+  9. Sistema valida e salva.
+
+Fluxo Alternativo — Excluir:
+  3. Usuário seleciona registro existente.
+  4. Usuário opta por "Excluir Registro".
+  5. Usuário confirma exclusão.
+  6. Sistema valida e exclui.
+
+Exceção:
+  Valor negativo ou campo obrigatório vazio → alerta, não salva.
+
+------------------------------------------------------------------------
+UC002 — MANTER DESPESA VARIÁVEL
+------------------------------------------------------------------------
+Atores: Usuário
+Pré-Condições: Usuário autenticado.
+Pós-Condições: Registro criado, atualizado ou removido no banco de dados.
+
+Fluxo Principal:
+  1. Usuário seleciona "Gerenciar Despesas".
+  2. Sistema exibe lista de registros atuais.
+  3. Usuário opta por "Novo Registro".
+  4. Usuário seleciona "Despesa Variável".
+  5. Sistema solicita: Descrição, Valor, Data de Vencimento, Data de Pagamento.
+  6. Usuário confirma.
+  7. Sistema valida e salva.
+
+Fluxo Alternativo — Editar: (igual ao UC001)
+Fluxo Alternativo — Excluir: (igual ao UC001)
+
+Exceção:
+  Valor negativo ou campo obrigatório vazio → alerta, não salva.
+
+------------------------------------------------------------------------
+UC003 — MANTER GANHO
+------------------------------------------------------------------------
+Atores: Usuário
+Pré-Condições: Usuário autenticado.
+Pós-Condições: Registro criado, atualizado ou removido no banco de dados.
+
+Fluxo Principal:
+  1. Usuário seleciona "Gerenciar Despesas".
+  2. Sistema exibe lista de registros atuais.
+  3. Usuário opta por "Novo Registro".
+  4. Usuário seleciona "Ganhos".
+  5. Sistema solicita: Descrição, Valor, Data do Ganho.
+  6. Usuário confirma.
+  7. Sistema valida e salva.
+
+Fluxo Alternativo — Editar: (igual ao UC001)
+Fluxo Alternativo — Excluir: (igual ao UC001)
+
+Exceção:
+  Valor negativo ou campo obrigatório vazio → alerta, não salva.
+
+------------------------------------------------------------------------
+UC004 — MANTER SALDO
+------------------------------------------------------------------------
+Atores: Usuário
+Pré-Condições: Primeiro acesso ou reset da conta.
+Pós-Condições: Saldo base estabelecido para cálculos futuros.
+
+Fluxo Principal:
+  1. Sistema detecta que não há saldo inicial configurado.
+  2. Sistema solicita o valor do saldo atual em conta/caixa.
+  3. Usuário insere o valor e confirma.
+  4. Sistema salva o saldo.
+
+Fluxo Alternativo:
+  Usuário pode editar o saldo inicial por erro de digitação,
+  APENAS antes de gerar o primeiro Dashboard.
+
+Exceção:
+  Valor inválido (letras, caracteres especiais, pontuações) → alerta.
+
+------------------------------------------------------------------------
+UC005 — MANTER DASHBOARD
+------------------------------------------------------------------------
+Atores: Usuário
+Pré-Condições: Existência de dados de ganhos e despesas no período.
+Pós-Condições: Relatórios gerados em formato digital.
+
+Fluxo Principal:
+  1. Usuário acessa tela de Dashboard.
+  2. Sistema exibe gráficos com comparações de dados.
+  3. Usuário seleciona um dashboard para visualização.
+  4. Usuário seleciona o mês desejado.
+
+Fluxo Alternativo — Exportar:
+  3. Usuário seleciona "Exportar Relatório" do gráfico visualizado.
+  4. Sistema inicia download do gráfico como imagem (.png).
+
+Exceção:
+  Sem movimentação no mês → sistema avisa que não há dados para exportar.
+
+------------------------------------------------------------------------
+UC006 — VISUALIZAR DIA
+------------------------------------------------------------------------
+Atores: Usuário
+Pré-Condições: Estar na visão mensal; existência de lançamentos na data.
+Pós-Condições: Exibição detalhada das transações diárias.
+
+Fluxo Principal:
+  1. Usuário clica em um dia específico no calendário/lista.
+  2. Sistema filtra todas as despesas e ganhos daquele dia.
+  3. Sistema exibe o "Saldo do Dia" (Ganhos do dia - Despesas do dia).
+
+Fluxo Alternativo:
+  Usuário navega entre os dias usando setas laterais.
+
+Exceção:
+  Erro de carregamento / conexão com o banco de dados.
+
+------------------------------------------------------------------------
+UC007 — VISUALIZAR MÊS
+------------------------------------------------------------------------
+Atores: Usuário
+Pré-Condições: Dados cadastrados no sistema.
+Pós-Condições: Visão macro do desempenho mensal.
+
+Fluxo Principal:
+  1. Usuário acessa visão mensal.
+  2. Usuário seleciona o mês desejado.
+  3. Sistema apresenta gráficos comparativos (Lucro x Despesa).
+  4. Sistema destaca a maior despesa e o total acumulado do mês.
+  5. Sistema projeta o saldo final para o próximo mês
+     com base nas despesas e ganhos.
+
+Fluxo Alternativo:
+  Mesmo fluxo ao selecionar mês diferente.
+
+Exceção:
+  Erro de carregamento / conexão com o banco de dados.
+
+------------------------------------------------------------------------
+UC008 — MANTER LISTA DE DESPESAS
+------------------------------------------------------------------------
+Atores: Usuário
+Pré-Condições: Usuário autenticado; despesas (fixas e/ou variáveis) cadastradas.
+Pós-Condições: Saldo total, "Contas a Pagar" e "Contas Pagas" recalculados.
+
+Fluxo Principal:
+  1. Usuário seleciona "Lista de Despesas".
+  2. Sistema lista todas as despesas do mês corrente com status (Pendente/Pago).
+  3. Usuário clica na checkbox de uma despesa pendente.
+  4. Sistema subtrai o valor do Saldo Total.
+  5. Sistema subtrai o valor de "Contas a Pagar".
+  6. Sistema adiciona o valor em "Contas Pagas".
+  7. Sistema marca a despesa visualmente como concluída.
+
+Fluxo Alternativo — Desmarcar:
+  Usuário desmarca a checkbox → sistema estorna a operação:
+    - soma ao Saldo Total
+    - soma a "Contas a Pagar"
+    - subtrai de "Contas Pagas"
+
+Exceção:
+  Saldo Insuficiente → alerta visual, mas operação é PERMITIDA (saldo fica negativo).
+
+================================================================================
+REQUISITOS NÃO FUNCIONAIS
+================================================================================
+
+RNF01 - Acessibilidade:
+  O sistema deve ser acessado apenas pelo cliente (uso pessoal/local).
+
+RNF02 - Funcionamento Offline:
+  O sistema deve funcionar offline, mesmo ao expandir futuramente.
+
+RNF03 - Performance:
+  Respostas do banco de dados até a visualização em no máximo 1 segundo.
+
+RNF04 - Compatibilidade:
+  A interface deve funcionar com o sistema atual do Google (Chrome).
+
+RNF05 - Autenticação:
+  Não há sistema de login. Ao acessar, o usuário vai direto às funções do site.
+
+RNF06 - Salvamento:
+  Dados armazenados localmente na máquina do cliente.
+
+RNF07 - Responsivo:
+  O sistema deve ser responsivo para uso em diferentes tamanhos de tela.
+
+================================================================================
+RESUMO — O QUE PRECISA SER FEITO
+================================================================================
+
+CRUD completo para:
+  [ ] Despesa Fixa (campos: descrição, valor, data vencimento, recorrência)
+  [ ] Despesa Variável (campos: descrição, valor, data vencimento, data pagamento)
+  [ ] Ganho (campos: descrição, valor, data do ganho)
+
+Saldo inicial:
+  [ ] Configuração de saldo na primeira vez / reset
+  [ ] Edição permitida SOMENTE antes do primeiro Dashboard gerado
+
+Lista de Despesas (UC008):
+  [ ] Listagem mensal com status Pendente / Pago
+  [ ] Checkbox para marcar/desmarcar pagamento
+  [ ] Recalculo em tempo real: Saldo Total, Contas a Pagar, Contas Pagas
+  [ ] Alerta visual de saldo insuficiente (mas permite operação)
+
+Visualizações:
+  [ ] Visão Diária — filtro por dia, exibe "Saldo do Dia", navegação por setas
+  [ ] Visão Mensal — gráfico Lucro x Despesa, maior despesa, projeção próximo mês
+
+Dashboard:
+  [ ] Gráficos comparativos por mês selecionado
+  [ ] Exportar gráfico como imagem PNG
+  [ ] Tratamento para mês sem dados
+
+Validações globais:
+  [ ] Valor negativo → bloquear
+  [ ] Campo obrigatório vazio → bloquear
+  [ ] Valor inválido no saldo (letras/caracteres) → bloquear
+
+Não funcionais a garantir:
+  [ ] Funciona offline (dados locais / MySQL local)
+  [ ] Resposta ≤ 1 segundo
+  [ ] Sem tela de login
+  [ ] Responsivo
+  [ ] Compatível com Chrome
+================================================================================

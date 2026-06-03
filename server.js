@@ -5,6 +5,42 @@ const ExcelJS = require('exceljs');
 const pool = require('./db'); // Importa a conexão com o banco de dados (MySQL)
 const app = express();
 
+async function ensureDatabaseSchema() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS transacoes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                nome VARCHAR(255),
+                descricao TEXT,
+                valor DECIMAL(12,2) DEFAULT 0,
+                tipo VARCHAR(30),
+                categoria VARCHAR(30),
+                concluido TINYINT(1) DEFAULT 0,
+                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                data_vencimento DATE NULL,
+                data_pagamento DATE NULL,
+                data_ganho DATE NULL,
+                recorrencia VARCHAR(50) NULL
+            )
+        `);
+
+        const [columns] = await pool.query('SHOW COLUMNS FROM transacoes');
+        const existing = new Set(columns.map(col => col.Field));
+        const alterations = [];
+
+        if (!existing.has('data_vencimento')) alterations.push('ADD COLUMN data_vencimento DATE NULL');
+        if (!existing.has('data_pagamento')) alterations.push('ADD COLUMN data_pagamento DATE NULL');
+        if (!existing.has('data_ganho')) alterations.push('ADD COLUMN data_ganho DATE NULL');
+        if (!existing.has('recorrencia')) alterations.push('ADD COLUMN recorrencia VARCHAR(50) NULL');
+
+        if (alterations.length > 0) {
+            await pool.query(`ALTER TABLE transacoes ${alterations.join(', ')}`);
+        }
+    } catch (erro) {
+        console.error('Erro ao inicializar esquema do banco:', erro);
+    }
+}
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname));
 app.use(express.static(__dirname));
@@ -54,18 +90,41 @@ app.get('/api/transacoes', async (req, res) => {
 // ROTA: CRIAR NOVA TRANSAÇÃO (CREATE)
 // ==========================================
 app.post('/api/transacoes', async (req, res) => {
-    // Dados recebidos do btnSalvar no script.js
-    const { nome, desc, valor, tipo, cat } = req.body; 
+    const { nome, desc, valor, tipo, cat, dataVencimento, dataPagamento, dataGanho, recorrencia } = req.body;
 
     try {
         const query = `
-            INSERT INTO transacoes (nome, descricao, valor, tipo, categoria) 
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO transacoes (
+                nome, descricao, valor, tipo, categoria,
+                data_vencimento, data_pagamento, data_ganho, recorrencia
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        const [resultado] = await pool.query(query, [nome, desc, valor, tipo, cat]);
+        const [resultado] = await pool.query(query, [
+            nome,
+            desc,
+            valor,
+            tipo,
+            cat,
+            dataVencimento || null,
+            dataPagamento || null,
+            dataGanho || null,
+            recorrencia || null
+        ]);
         
-        // Retorna o ID gerado pelo banco e os dados confirmados
-        res.status(201).json({ id: resultado.insertId, nome, desc, valor, tipo, cat, concluido: false });
+        res.status(201).json({
+            id: resultado.insertId,
+            nome,
+            desc,
+            valor,
+            tipo,
+            cat,
+            dataVencimento,
+            dataPagamento,
+            dataGanho,
+            recorrencia,
+            concluido: false
+        });
     } catch (erro) {
         console.error(erro);
         res.status(500).json({ erro: 'Erro ao adicionar transação' });
@@ -77,15 +136,28 @@ app.post('/api/transacoes', async (req, res) => {
 // ==========================================
 app.put('/api/transacoes/:id', async (req, res) => {
     const { id } = req.params;
-    const { nome, desc, valor, tipo, cat, concluido } = req.body;
+    const { nome, desc, valor, tipo, cat, concluido, dataVencimento, dataPagamento, dataGanho, recorrencia } = req.body;
 
     try {
         const query = `
             UPDATE transacoes 
-            SET nome = ?, descricao = ?, valor = ?, tipo = ?, categoria = ?, concluido = ? 
+            SET nome = ?, descricao = ?, valor = ?, tipo = ?, categoria = ?, concluido = ?,
+                data_vencimento = ?, data_pagamento = ?, data_ganho = ?, recorrencia = ?
             WHERE id = ?
         `;
-        await pool.query(query, [nome, desc, valor, tipo, cat, concluido, id]);
+        await pool.query(query, [
+            nome,
+            desc,
+            valor,
+            tipo,
+            cat,
+            concluido,
+            dataVencimento || null,
+            dataPagamento || null,
+            dataGanho || null,
+            recorrencia || null,
+            id
+        ]);
         
         res.json({ mensagem: 'Transação atualizada com sucesso!' });
     } catch (erro) {
@@ -271,11 +343,11 @@ app.get('/api/export/csv', async (req, res) => {
         const [transacoes] = await pool.query(query, params);
         
         // Cabeçalhos CSV
-        let csv = 'ID,Nome,Descricao,Valor,Tipo,Categoria,Concluido,Data Criacao\n';
+        let csv = 'ID,Nome,Descricao,Valor,Tipo,Categoria,Concluido,Data Vencimento,Data Pagamento,Data Ganho,Recorrencia,Data Criacao\n';
         
         // Dados
         transacoes.forEach(t => {
-            csv += `${t.id},"${t.nome}","${t.descricao}",${t.valor},"${t.tipo}","${t.categoria}",${t.concluido},"${new Date(t.data_criacao).toLocaleDateString('pt-BR')}"\n`;
+            csv += `${t.id},"${t.nome}","${t.descricao}",${t.valor},"${t.tipo}","${t.categoria}",${t.concluido},"${t.data_vencimento ? new Date(t.data_vencimento).toLocaleDateString('pt-BR') : ''}","${t.data_pagamento ? new Date(t.data_pagamento).toLocaleDateString('pt-BR') : ''}","${t.data_ganho ? new Date(t.data_ganho).toLocaleDateString('pt-BR') : ''}","${t.recorrencia || ''}","${new Date(t.data_criacao).toLocaleDateString('pt-BR')}"\n`;
         });
         
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -290,6 +362,21 @@ app.get('/api/export/csv', async (req, res) => {
 // ==========================================
 // ROTA: EXPORTAR PDF
 // ==========================================
+app.get('/api/alertas', async (req, res) => {
+    try {
+        const [alertas] = await pool.query(`
+            SELECT * FROM transacoes
+            WHERE tipo = 'despesa' AND concluido = 0
+                AND data_vencimento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+            ORDER BY data_vencimento ASC
+        `);
+        res.json(alertas);
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao buscar alertas' });
+    }
+});
+
 app.get('/api/export/pdf', async (req, res) => {
     try {
         const { mes, ano } = req.query;
@@ -381,6 +468,10 @@ app.get('/api/export/excel', async (req, res) => {
             { header: 'Tipo', key: 'tipo', width: 15 },
             { header: 'Categoria', key: 'categoria', width: 15 },
             { header: 'Concluído', key: 'concluido', width: 12 },
+            { header: 'Data Vencimento', key: 'data_vencimento', width: 15 },
+            { header: 'Data Pagamento', key: 'data_pagamento', width: 15 },
+            { header: 'Data Ganho', key: 'data_ganho', width: 15 },
+            { header: 'Recorrência', key: 'recorrencia', width: 15 },
             { header: 'Data Criação', key: 'data_criacao', width: 20 }
         ];
 
@@ -393,6 +484,10 @@ app.get('/api/export/excel', async (req, res) => {
                 tipo: t.tipo,
                 categoria: t.categoria,
                 concluido: t.concluido ? 'Sim' : 'Não',
+                data_vencimento: t.data_vencimento ? new Date(t.data_vencimento).toLocaleDateString('pt-BR') : '',
+                data_pagamento: t.data_pagamento ? new Date(t.data_pagamento).toLocaleDateString('pt-BR') : '',
+                data_ganho: t.data_ganho ? new Date(t.data_ganho).toLocaleDateString('pt-BR') : '',
+                recorrencia: t.recorrencia || '',
                 data_criacao: new Date(t.data_criacao).toLocaleDateString('pt-BR')
             });
         });
@@ -410,6 +505,8 @@ app.get('/api/export/excel', async (req, res) => {
 
 // Inicializando o servidor
 const PORTA = 3000;
-app.listen(PORTA, () => {
-    console.log(`Servidor de finanças rodando na porta ${PORTA}`);
+ensureDatabaseSchema().then(() => {
+    app.listen(PORTA, () => {
+        console.log(`Servidor de finanças rodando na porta ${PORTA}`);
+    });
 });

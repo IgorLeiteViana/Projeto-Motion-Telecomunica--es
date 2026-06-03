@@ -27,6 +27,31 @@ body { background-color: #333333; color: white; display: flex; min-height: 100vh
 }
 .select-mes-estilizado:hover { border-color: #50fa7b; }
 
+.action-buttons { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.saldo-inicial-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #fff;
+    margin-left: 20px;
+    white-space: nowrap;
+}
+.saldo-inicial-banner strong {
+    font-size: 1rem;
+    color: #50fa7b;
+}
+.btn-export {
+    background: #50fa7b;
+    color: #222;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.2s;
+}
+.btn-export:hover { opacity: 0.9; transform: translateY(-1px); }
+
 /* TELA PRINCIPAL */
 .chart-container-principal { 
     max-width: 800px; 
@@ -121,6 +146,86 @@ body { background-color: #333333; color: white; display: flex; min-height: 100vh
 #btn-salvar { background: #50fa7b; color: #222; border: none; padding: 10px; flex: 1; border-radius: 5px; font-weight: bold; cursor: pointer; }
 #btn-cancelar { background: #ff5555; color: white; border: none; padding: 10px; flex: 1; border-radius: 5px; font-weight: bold; cursor: pointer; }
 
+.comparativo-container {
+    display: flex;
+    gap: 15px;
+    margin-top: 25px;
+    flex-wrap: wrap;
+}
+.comparativo-card {
+    flex: 1 1 180px;
+    background: #444;
+    padding: 18px;
+    border-radius: 15px;
+    border: 1px solid #555;
+    text-align: center;
+}
+.comparativo-card h4 {
+    margin-bottom: 10px;
+    color: #ccc;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+}
+.comparativo-card p {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #50fa7b;
+}
+
+.visao-mensal-container {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+    gap: 15px;
+    margin-top: 25px;
+}
+.visao-mensal-card {
+    background: #444;
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid #555;
+    text-align: center;
+}
+.visao-mensal-card span {
+    color: #ccc;
+    display: block;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+}
+.visao-dia-container {
+    margin-top: 25px;
+}
+.visao-dia-header {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+.visao-dia-header input,
+.visao-dia-header button {
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid #666;
+    background: #444;
+    color: white;
+}
+.visao-dia-result {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+.lista-dia {
+    margin-top: 15px;
+    display: grid;
+    gap: 10px;
+}
+.lista-dia .card-relatorio {
+    text-align: left;
+}
+.lista-dia .card-relatorio h2 {
+    font-size: 1rem;
+}
+
 /* LISTA DE ITENS (Despesas / Entradas) */
 .items-container { display: flex; flex-direction: column; gap: 15px; }
 
@@ -163,6 +268,23 @@ body { background-color: #333333; color: white; display: flex; min-height: 100vh
     color: #ffffff;
     font-size: 0.9rem;
     opacity: 0.8;
+}
+
+.item-meta,
+.item-datas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: #bfbfbf;
+}
+
+.item-meta span,
+.item-datas small {
+    background: rgba(255,255,255,0.06);
+    padding: 6px 10px;
+    border-radius: 999px;
 }
 
 .item-valor {

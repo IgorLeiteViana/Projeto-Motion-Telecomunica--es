@@ -2,9 +2,19 @@
     <header class="top-bar-principal">
         <div class="select-mes-container">
             <select class="select-mes-estilizado"></select>
-        </div>        <div class="action-buttons">
-            <button id="btn-export-excel" class="btn-export" onclick="exportarExcel()">Exportar Excel</button>
-        </div>    </header>
+        </div>
+        <div class="saldo-inicial-banner">
+            <span>Saldo Inicial</span>
+            <strong id="valor-saldo-inicial">R$ 0,00</strong>
+            <button id="btn-editar-saldo" class="btn-export">Editar</button>
+        </div>
+        <div class="action-buttons">
+            <button id="btn-export-excel" class="btn-export" onclick="exportarExcel()">Excel</button>
+            <button id="btn-export-csv" class="btn-export" onclick="exportarCsv()">CSV</button>
+            <button id="btn-export-pdf" class="btn-export" onclick="exportarPdf()">PDF</button>
+            <button id="btn-export-png" class="btn-export" onclick="exportarPng()">PNG</button>
+        </div>
+    </header>
 
     <section class="dashboard-cards">
         <div class="card red"><span>DESPESAS TOTAIS</span><h2>R$ 0,00</h2></div>
