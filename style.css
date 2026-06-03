@@ -52,6 +52,28 @@ body { background-color: #333333; color: white; display: flex; min-height: 100vh
 }
 .btn-export:hover { opacity: 0.9; transform: translateY(-1px); }
 
+/* Header layout: align action-buttons to the right of saldo-inicial-banner */
+.top-bar-principal { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.top-bar-principal .select-mes-container { order: 1; }
+.top-bar-principal .saldo-inicial-banner { order: 2; margin-left: 0; }
+.top-bar-principal .action-buttons { order: 3; margin-left: auto; }
+
+/* Input month (mobile friendly) */
+.select-month-input { background: #444; color: white; border: 1px solid #666; padding: 8px 12px; border-radius: 8px; outline: none; font-weight: bold; }
+
+/* Show input[type=month] on small screens and hide long select there */
+@media (max-width: 720px) {
+    .select-mes-estilizado { display: none; }
+    .select-month-input { display: inline-block; }
+}
+@media (min-width: 721px) {
+    .select-month-input { display: none; }
+    .select-mes-estilizado { display: inline-block; }
+}
+
+/* Tooltip style (used by script.js) */
+#ui-tooltip { box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+
 /* TELA PRINCIPAL */
 .chart-container-principal { 
     max-width: 800px; 

@@ -15,7 +15,7 @@
         <input type="number" id="form-valor" placeholder="0,00" step="0.01">
         <input type="text" id="form-nome" placeholder="NOME">
         <input type="text" id="form-descricao" placeholder="DESCRIÇÃO">
-        <div class="form-row">
+        <div class="form-row" data-tooltip="Tipo / Categoria" title="Tipo / Categoria">
             <select id="form-tipo">
                 <option value="entrada">ENTRADA</option>
                 <option value="despesa">DESPESA</option>
@@ -25,11 +25,11 @@
                 <option value="variavel">VARIÁVEL</option>
             </select>
         </div>
-        <div class="form-row">
+        <div class="form-row" data-tooltip="Vencimento / Pagamento" title="Vencimento / Pagamento">
             <input type="date" id="form-data-vencimento" placeholder="Data de Vencimento">
             <input type="date" id="form-data-pagamento" placeholder="Data de Pagamento">
         </div>
-        <div class="form-row">
+        <div class="form-row" data-tooltip="Ganho / Recorrência" title="Ganho / Recorrência">
             <input type="date" id="form-data-ganho" placeholder="Data do Ganho">
             <select id="form-recorrencia">
                 <option value="">Recorrência</option>
@@ -53,6 +53,7 @@
         <input type="number" id="form-saldo-inicial" placeholder="0,00" step="0.01">
         <div class="modal-buttons">
             <button id="btn-salvar-saldo">Salvar Saldo</button>
+            <button id="btn-cancelar-saldo" class="btn-cancel-saldo">Cancelar</button>
         </div>
     </div>
 </div>

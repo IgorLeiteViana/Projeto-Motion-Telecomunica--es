@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const meses = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 
                        'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
         const selectores = document.querySelectorAll('.select-mes-estilizado');
+        const monthInputs = document.querySelectorAll('.select-month-input');
         
         selectores.forEach(select => {
             select.innerHTML = '';
@@ -50,6 +51,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+
+        // Sincroniza input[type=month] com o estado atual
+        monthInputs.forEach(inp => {
+            inp.value = `${anoSelecionado}-${String(mesSelecionado).padStart(2, '0')}`;
+        });
         
         // Adicionar event listeners aos seletores
         selectores.forEach(select => {
@@ -58,9 +64,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 mesSelecionado = parseInt(mes);
                 anoSelecionado = parseInt(ano);
                 
-                // Atualizar todos os seletores
+                // Atualizar todos os seletores e month inputs
                 selectores.forEach(s => s.value = `${mesSelecionado}-${anoSelecionado}`);
+                monthInputs.forEach(inp => inp.value = `${anoSelecionado}-${String(mesSelecionado).padStart(2, '0')}`);
                 
+                // Recarregar dados
+                carregarTransacoes();
+                atualizarDashboard();
+                atualizarRelatorios();
+                atualizarVisaoMensal();
+                atualizarVisaoDoDia();
+                atualizarComparativo();
+                atualizarGraficosSecundarios();
+                atualizarGraficoPrincipal();
+            });
+        });
+
+        // Adicionar event listeners aos inputs month (mais amigável em mobile)
+        monthInputs.forEach(inp => {
+            inp.addEventListener('change', (e) => {
+                // formato YYYY-MM
+                const parts = e.target.value.split('-');
+                if (parts.length !== 2) return;
+                const ano = parseInt(parts[0]);
+                const mes = parseInt(parts[1]);
+                if (isNaN(ano) || isNaN(mes)) return;
+                anoSelecionado = ano;
+                mesSelecionado = mes;
+
+                // Atualizar selects
+                selectores.forEach(s => s.value = `${mesSelecionado}-${anoSelecionado}`);
+
                 // Recarregar dados
                 carregarTransacoes();
                 atualizarDashboard();
@@ -523,6 +557,59 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('modal-saldo-inicial').style.display = 'none';
     };
 
+    // Cancela edição do saldo inicial sem salvar
+    const cancelarEdicaoSaldoInicial = () => {
+        // restaura o valor salvo no localStorage
+        document.getElementById('form-saldo-inicial').value = localStorage.getItem('saldoInicial') || '';
+        document.getElementById('modal-saldo-inicial').style.display = 'none';
+    };
+
+    // Inicializa tooltips simples para .form-row[data-tooltip]
+    const initTooltips = () => {
+        const tooltip = document.createElement('div');
+        tooltip.id = 'ui-tooltip';
+        tooltip.style.position = 'fixed';
+        tooltip.style.zIndex = 1000;
+        tooltip.style.background = '#222';
+        tooltip.style.color = '#fff';
+        tooltip.style.padding = '6px 10px';
+        tooltip.style.borderRadius = '6px';
+        tooltip.style.fontSize = '0.85rem';
+        tooltip.style.display = 'none';
+        tooltip.setAttribute('role', 'tooltip');
+        document.body.appendChild(tooltip);
+
+        document.querySelectorAll('.form-row[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                const text = el.getAttribute('data-tooltip') || el.getAttribute('title') || '';
+                if (!text) return;
+                tooltip.textContent = text;
+                tooltip.style.display = 'block';
+                const rect = el.getBoundingClientRect();
+                tooltip.style.top = `${rect.top - 36}px`;
+                tooltip.style.left = `${rect.left}px`;
+            });
+            el.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+            // touch support: toggle tooltip on first touch
+            el.addEventListener('touchstart', (e) => {
+                e.stopPropagation();
+                const text = el.getAttribute('data-tooltip') || el.getAttribute('title') || '';
+                if (!text) return;
+                if (tooltip.style.display === 'block') {
+                    tooltip.style.display = 'none';
+                } else {
+                    tooltip.textContent = text;
+                    tooltip.style.display = 'block';
+                    const rect = el.getBoundingClientRect();
+                    tooltip.style.top = `${rect.top - 36}px`;
+                    tooltip.style.left = `${rect.left}px`;
+                }
+            });
+        });
+        // Hide tooltip on global touch/click
+        document.addEventListener('click', () => { tooltip.style.display = 'none'; });
+    };
+
     function limparCampos() {
         document.querySelectorAll('#modal-formulario input').forEach(i => i.value = '');
         document.getElementById('form-tipo').value = 'entrada';
@@ -594,10 +681,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('btn-editar-saldo').addEventListener('click', abrirModalSaldoInicial);
     document.getElementById('btn-salvar-saldo').addEventListener('click', salvarSaldoInicial);
+    // cancelar edição do saldo inicial (novo)
+    const btnCancelarSaldo = document.getElementById('btn-cancelar-saldo');
+    if (btnCancelarSaldo) btnCancelarSaldo.addEventListener('click', cancelarEdicaoSaldoInicial);
     document.getElementById('btn-filtrar-dia').addEventListener('click', atualizarVisaoDoDia);
     document.getElementById('dia-selecionado').value = new Date().toISOString().slice(0, 10);
 
-    // Inicializa o seletor de mês e carrega os dados
+    // Inicializa tooltips, seletor de mês e carrega os dados
+    initTooltips();
     inicializarSeletorMes();
     atualizarSaldoInicialUI();
     atualizarGraficoPrincipal();
