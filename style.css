@@ -12,20 +12,30 @@ body { background-color: #333333; color: white; display: flex; min-height: 100vh
 .content { flex: 1; padding: 30px; overflow-y: auto; }
 
 /* ESTILIZAÇÃO DOS SELECTS (MES/ANO) */
-.select-mes-container { margin-bottom: 20px; }
-.select-mes-estilizado {
+.select-mes-container {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.select-mes-estilizado,
+.select-month-input {
     background: #444;
     color: white;
     border: 1px solid #666;
-    padding: 8px 15px;
-    border-radius: 20px;
+    padding: 10px 14px;
+    border-radius: 16px;
     outline: none;
     cursor: pointer;
     font-weight: bold;
-    font-size: 0.9rem;
-    transition: 0.3s;
+    font-size: 0.95rem;
+    transition: border-color 0.25s ease, transform 0.2s ease;
 }
-.select-mes-estilizado:hover { border-color: #50fa7b; }
+.select-mes-estilizado:hover,
+.select-month-input:hover {
+    border-color: #50fa7b;
+}
 
 .action-buttons { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .saldo-inicial-banner {
@@ -33,7 +43,7 @@ body { background-color: #333333; color: white; display: flex; min-height: 100vh
     align-items: center;
     gap: 12px;
     color: #fff;
-    margin-left: 20px;
+    margin-left: 0;
     white-space: nowrap;
 }
 .saldo-inicial-banner strong {
@@ -55,24 +65,52 @@ body { background-color: #333333; color: white; display: flex; min-height: 100vh
 /* Header layout: align action-buttons to the right of saldo-inicial-banner */
 .top-bar-principal { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .top-bar-principal .select-mes-container { order: 1; }
-.top-bar-principal .saldo-inicial-banner { order: 2; margin-left: 0; }
+.top-bar-principal .saldo-inicial-banner { order: 2; }
 .top-bar-principal .action-buttons { order: 3; margin-left: auto; }
 
 /* Input month (mobile friendly) */
-.select-month-input { background: #444; color: white; border: 1px solid #666; padding: 8px 12px; border-radius: 8px; outline: none; font-weight: bold; }
+.select-month-input { min-width: 180px; }
 
 /* Show input[type=month] on small screens and hide long select there */
 @media (max-width: 720px) {
+    .select-mes-container { width: 100%; }
     .select-mes-estilizado { display: none; }
-    .select-month-input { display: inline-block; }
+    .select-month-input { display: inline-block; width: 100%; max-width: 280px; }
 }
 @media (min-width: 721px) {
     .select-month-input { display: none; }
-    .select-mes-estilizado { display: inline-block; }
+    .select-mes-estilizado { display: inline-block; min-width: 220px; }
 }
 
 /* Tooltip style (used by script.js) */
-#ui-tooltip { box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+#ui-tooltip {
+    box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+    border-radius: 10px;
+    padding: 10px 14px;
+    background: rgba(10, 10, 10, 0.95);
+    color: #f8f8f8;
+    font-size: 0.9rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+#ui-tooltip.show {
+    opacity: 1;
+}
+
+.form-row[data-tooltip] {
+    position: relative;
+    padding: 10px;
+    border: 1px solid #3b3b3b;
+    border-radius: 14px;
+    background: #2e2e2e;
+    transition: border-color 0.2s ease, background 0.2s ease;
+    cursor: help;
+}
+.form-row[data-tooltip]:hover {
+    border-color: #50fa7b;
+    background: #383838;
+}
 
 /* TELA PRINCIPAL */
 .chart-container-principal { 

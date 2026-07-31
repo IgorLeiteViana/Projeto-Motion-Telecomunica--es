@@ -570,44 +570,45 @@ document.addEventListener('DOMContentLoaded', function() {
         tooltip.id = 'ui-tooltip';
         tooltip.style.position = 'fixed';
         tooltip.style.zIndex = 1000;
-        tooltip.style.background = '#222';
-        tooltip.style.color = '#fff';
-        tooltip.style.padding = '6px 10px';
-        tooltip.style.borderRadius = '6px';
-        tooltip.style.fontSize = '0.85rem';
+        tooltip.style.pointerEvents = 'none';
         tooltip.style.display = 'none';
         tooltip.setAttribute('role', 'tooltip');
         document.body.appendChild(tooltip);
 
+        const showTooltip = (text, rect) => {
+            tooltip.textContent = text;
+            tooltip.style.top = `${Math.max(10, rect.top - 42)}px`;
+            tooltip.style.left = `${Math.max(10, rect.left)}px`;
+            tooltip.style.display = 'block';
+            tooltip.classList.add('show');
+        };
+
+        const hideTooltip = () => {
+            tooltip.style.display = 'none';
+            tooltip.classList.remove('show');
+        };
+
         document.querySelectorAll('.form-row[data-tooltip]').forEach(el => {
-            el.addEventListener('mouseenter', (e) => {
+            el.addEventListener('mouseenter', () => {
                 const text = el.getAttribute('data-tooltip') || el.getAttribute('title') || '';
                 if (!text) return;
-                tooltip.textContent = text;
-                tooltip.style.display = 'block';
                 const rect = el.getBoundingClientRect();
-                tooltip.style.top = `${rect.top - 36}px`;
-                tooltip.style.left = `${rect.left}px`;
+                showTooltip(text, rect);
             });
-            el.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
-            // touch support: toggle tooltip on first touch
+            el.addEventListener('mouseleave', hideTooltip);
             el.addEventListener('touchstart', (e) => {
                 e.stopPropagation();
                 const text = el.getAttribute('data-tooltip') || el.getAttribute('title') || '';
                 if (!text) return;
+                const rect = el.getBoundingClientRect();
                 if (tooltip.style.display === 'block') {
-                    tooltip.style.display = 'none';
+                    hideTooltip();
                 } else {
-                    tooltip.textContent = text;
-                    tooltip.style.display = 'block';
-                    const rect = el.getBoundingClientRect();
-                    tooltip.style.top = `${rect.top - 36}px`;
-                    tooltip.style.left = `${rect.left}px`;
+                    showTooltip(text, rect);
                 }
             });
         });
-        // Hide tooltip on global touch/click
-        document.addEventListener('click', () => { tooltip.style.display = 'none'; });
+        document.addEventListener('click', hideTooltip);
     };
 
     function limparCampos() {
